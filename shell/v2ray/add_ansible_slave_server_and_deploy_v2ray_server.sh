@@ -20,12 +20,13 @@ then
 	echo "------------"
 	echo "正在配置ansible主控端"
 	read -p "请输入被控端密码：" pwd
-	count=`sed -n "/$ip/p" /etc/ansible/hosts | wc -l`
-	if [ $count -ge 0 ]
-	then
-		echo "$ip exsiting in /etc/ansible/hosts"
-		sed -i /$ip/d /etc/ansible/hosts
-	fi
+#	count=`sed -n "/$ip/p" /etc/ansible/hosts | wc -l`
+#	if [ $count -ge 0 ]
+#	then
+#		echo "$ip exsiting in /etc/ansible/hosts"
+#		sed -i /$ip/d /etc/ansible/hosts
+#	fi
+	sed  -i "/$vps/{n;d}" /etc/ansible/hosts
 	sed -i "/$vps/a$ip ansible_ssh_user=root ansible_sudo_pass=$pwd" /etc/ansible/hosts
 	echo "主控端配置完毕！"
 	echo "------------"
@@ -101,3 +102,6 @@ else
 	echo "ip error, please contiue"
 	exit 1
 fi
+
+
+
