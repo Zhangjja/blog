@@ -1,0 +1,20 @@
+ansible支持主机列表的正则匹配
+
+全量: all/*
+逻辑或: :
+逻辑非: ！
+逻辑与: ＆
+切片： []
+正则匹配： 以~开头
+ansible all -m ping  #所有默认inventory文件中的机器
+ansible "*" -m ping  #同上
+ansible 121.28.13.* -m  ping #所有122.28.13.X机器
+
+ansible  web1:web2  -m  ping  #所有属于组web1或属于web2的机器
+ansible  web1:!web2  -m  ping #属于组web1，但不属于web2的机器
+ansible  web1&web2  -m  ping  #属于组web1又属于web2的机器
+
+ansible webserver[0]  -m  ping    #属于组webserver的第1台机器
+ansible webserver[0:5]  -m  ping  #属于组webserver的第1到4台机器
+
+ansible "~(beta|web)\.example\.(com|org)"  -m ping 
