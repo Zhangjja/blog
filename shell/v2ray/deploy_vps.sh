@@ -1,33 +1,111 @@
 #!/bin/bash
-read -p "请输入主控端的vps分组: " vps
-read -p "请输入被控端的IP地址: " ip
+vps=""
+if [ -z "$1" ]
+then
+	vps="default"
+else
+	vps="$1"
+fi
+
+curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/create --data 'DCID=5' --data 'VPSPLANID=201' --data 'OSID=193' --data 'SSHKEYID=5cc15103d9f4d' --data "label=$vps" > subid.txt
+echo "installing server......"
+
+SUBID=`cat subid.txt | awk -F '"' '{print$4}'`
+echo $SUBID
+
+
+ip=""
+while true
+do
+	ip=`curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/list?SUBID=$SUBID | python -m json.tool | grep -E "\bmain_ip\b"  |awk -F '"' '{print$4}'`
+	if [ $ip == "0.0.0.0" ]
+	then	
+		echo $ip
+		echo "getting ip......"
+		ip=`curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/list?SUBID=$SUBID | python -m json.tool | grep -E "\bmain_ip\b"  |awk -F '"' '{print$4}'`
+	else
+		echo $ip
+		break
+	fi	
+done
+
+
+pwd=""
+while true
+do
+	pwd=`curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/list?SUBID=$SUBID  | python -m json.tool | grep -E  "\bdefault_password\b" |awk -F '"' '{print$4}'`
+	if [ -z $pwd ]
+	then
+		echo $pwd
+		echo "getting pwd......"
+		pwd=`curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/list?SUBID=$SUBID  | python -m json.tool | grep -E  "\bdefault_password\b" |awk -F '"' '{print$4}'`
+	else
+		echo $pwd
+		break
+	fi
+done
+
+rm subid.txt
+
+while true
+do
+	i=1
+	ping -c 1 -W 2 $ip >/dev/null
+	if [ $? -eq 0 ]
+	then
+		break
+	else
+		i=$(expr $i + 1)
+		echo "$i"
+	fi
+done
+
 ping -c 2 -W 2 $ip >> /dev/null
 if [ $? = 0 ]
 then
 	echo "ip地址存在！"
 	echo "------------"
+	echo "清理$ip已经存在的密钥"
+	ssh-keygen -f "/root/.ssh/known_hosts" -R $ip
 	echo "正在添加密钥！"
 	#静默安装本地ssh密钥
 	echo "v2ray_server安装ssh密钥"
-	ssh root@$ip "ssh-keygen -t rsa -N '' -f /root/.ssh/id_rsa -q"
-	echo "将本地密钥拷贝到腾讯云上"
-	ssh-copy-id -i /root/.ssh/id_rsa.pub ubuntu@118.89.139.53
+	while true
+	do
+		ssh root@$ip "ssh-keygen -t rsa -N '' -f /root/.ssh/id_rsa -q"
+		if [ $? -eq 0 ]
+			break
+		then
+			ssh root@$ip "ssh-keygen -t rsa -N '' -f /root/.ssh/id_rsa -q"
+		fi
+	done
+#	echo "将本地密钥拷贝到腾讯云上"
+#	ssh-copy-id -i /root/.ssh/id_rsa.pub ubuntu@118.89.139.53
 	echo "远程v2ray服务器，并配置v2ray与腾讯云的免密ssh登录"
 	ssh -t root@$ip  "ssh-copy-id -i /root/.ssh/id_rsa.pub ubuntu@118.89.139.53"
-	echo "将本地密钥拷贝到v2ray服务端"
-	ssh-copy-id -i /root/.ssh/id_rsa.pub root@$ip
+#	echo "将本地密钥拷贝到v2ray服务端"
+#	ssh-copy-id -i /root/.ssh/id_rsa.pub root@$ip
 	echo "添加密钥成功！"
 	echo "------------"
 	echo "正在配置ansible主控端"
-	read -p "请输入被控端密码：" pwd
+#	read -p "请输入被控端密码：" pwd
 #	count=`sed -n "/$ip/p" /etc/ansible/hosts | wc -l`
 #	if [ $count -ge 0 ]
 #	then
 #		echo "$ip exsiting in /etc/ansible/hosts"
 #		sed -i /$ip/d /etc/ansible/hosts
 #	fi
-	sed  -i "/$vps/{n;d}" /etc/ansible/hosts
-	sed -i "/$vps/a$ip ansible_ssh_user=root ansible_sudo_pass=$pwd" /etc/ansible/hosts
+	jugde=`cat /etc/ansible/hosts | grep -E "\b$vps\b"| wc -l`
+	if [ $jugde -gt 0 ]
+	then
+		echo "$vps已存在"
+		sed  -i "/$vps/{n;d}" /etc/ansible/hosts
+		sed -i "/$vps/a$ip ansible_ssh_user=root ansible_sudo_pass=$pwd" /etc/ansible/hosts
+	else
+		echo "$vps不存在"
+		sed -i "\$a\\[$vps\]" /etc/ansible/hosts
+                sed -i "/$vps/a$ip ansible_ssh_user=root ansible_sudo_pass=$pwd" /etc/ansible/hosts
+	fi
 	echo "主控端配置完毕！"
 	echo "------------"
 	echo "测试ansible被控端"
@@ -102,6 +180,3 @@ else
 	echo "ip error, please contiue"
 	exit 1
 fi
-
-
-

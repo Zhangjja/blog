@@ -5,35 +5,38 @@
 echo "一键更新局域网的网关和DNS服务"
 echo "选择需要更新的GW_DNS和VPS组名,将此GW_DNS配置成为使用此VPS的科学上外网关"
 
-while true
-do
-	read -p "请输入需要更新的局域网网关或者DNS的ansible分组名：" GW_DNS
+#while true
+#do
+#	read -p "请输入需要更新的局域网网关或者DNS的ansible分组名：" GW_DNS
+	GW_DNS="$1"
 	echo "您输入的GW_DNS分组为$GW_DNS,正在验证GW_DNS分组是否存在,请稍后..."
 	count1=`ansible $GW_DNS -m ping|grep SUCCESS|wc -l`
 	if [ $count1 -gt 0 ]
 	then
 		echo "验证成功GW_DNS分组存在！分组名为$GW_DNS"
-		break
+#		break
 	else
 		echo "GW_DNS分组不存在，请重新输入......"
-		
+		exit 1
 	fi
-done
+#done
 
-while true
-do
-        read -p "请输入需要更新的局域网需要使用的VPS服务器分组名：" VPS
+#while true
+#do
+#        read -p "请输入需要更新的局域网需要使用的VPS服务器分组名：" VPS
+	VPS="$2"
         echo "您输入的VPS分组为$VPS,正在验证VPS分组是否存在,请稍后..."
         count2=`ansible $VPS -m ping|grep SUCCESS|wc -l`
         if [ $count2 -gt 0 ]
         then
                 echo "验证成功VPS分组存在！分组名为$VPS"
-                break
+#                break
         else
                 echo "VPS分组不存在，请重新输入......"
+		exit 1
 
         fi
-done
+#done
 #获取v2ray服务端的IP，PORT，ID
 server_address=`ansible $VPS -m shell -a "ifconfig" | sed -n '3p'|awk '{print$2}'|awk -F ':' '{print$2}'`
 echo "v2ray_server的IP是$server_address"
