@@ -1,0 +1,256 @@
+version: '2'
+
+services:
+    fluentd:
+        image: fluent/fluentd
+        container_name: log-srv
+        restart: unless-stopped
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
+        ports:
+            - "24224:24224"
+            - "24224:24224/udp"
+        volumes:
+            - ./monitor/log/data:/fluentd/log
+            - ./fluent.conf:/fluentd/etc/fluent.conf
+            - ./monitor/log/plugin:/etc/fluent/plugin
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        environment:
+            - TZ=Asia/Shanghai
+
+    web:
+        image: docker.hz.ulsee.com/hkeye/fed:v3.0.0-beta.1-hotel
+        container_name: hkeye-fed
+        restart: unless-stopped
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+        network_mode: "host"
+        volumes:
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        environment:
+            - TZ=Asia/Shanghai
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.web
+
+    face-reco:
+        image: docker.hz.ulsee.com/hkeye/face-reco:vhkeye-face-reco2.2-31-g33eb1c1_branch_test_liveness
+        container_name: face-reco
+        restart: unless-stopped
+        network_mode: host
+        ports:
+            - 8040:8040
+            - 8041:8041
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+        volumes:
+            - ./data/featcenter/db:/workspace/data
+            - ./img:/workspace/img
+            - ./licence:/workspace/licence
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.face-reco
+        environment:
+            - LD_LIBRARY_PATH=/workspace/libs:/usr/local/nvidia/lib64
+            - GLOG_minloglevel=2
+            - TZ=Asia/Shanghai
+        command:
+            - "./face-reco"
+            - "-detModel=/workspace/model/"
+            - "-extModel=/workspace/model/"
+            - "-licencePath=/workspace/licence/"
+            - "-db=/workspace/data"
+            - "-SsimThreshold=0.5"
+            - "-BlurCheck=false"
+            - "-processNum=1"
+            - "-licenceKey=eyJrZXlfaWQiOjExNSwidGltZXN0YW1wIjoxNTM1OTU2Mjk2fQ=="
+            - "-licenceSecret=7735e2a38f8b1966e167cc56513292c6"
+            - "-http-debug=false"
+    security-manager:
+        image: docker.hz.ulsee.com/hkeye/manager:china-zun
+        container_name: security-manager
+        restart: unless-stopped
+        network_mode: host
+        ports:
+            - 10020:10020
+        volumes:
+            - ./img:/img
+            - ./export/excel:/export/excel
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        environment:
+            - TZ=Asia/Shanghai
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.security-manager
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+        command:
+            - "./manager"
+            - "-db=127.0.0.1:3306"
+            - "-storage=http://127.0.0.1:7040"
+            - "-featcenter=http://127.0.0.1:8040"
+            - "-capture=127.0.0.1:8030"
+            - "-auth=127.0.0.1:7010"
+            - "-log_sql=true"
+            - "-http-debug=true"
+            - "-postout=${POSTOUT}"
+    dahua-config:
+        image: docker.hz.ulsee.com/hkeye/dahua_config:latest
+        container_name: dahua-config
+        restart: unless-stopped
+        network_mode: host
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.dahua-config
+
+    security-manager-db:
+        image: docker.hz.ulsee.com/hkeye/mariadb:latest
+        container_name: security-manager-db
+        restart: unless-stopped
+        ports:
+            - 3306:3306
+        volumes:
+            - ./init.sql:/docker-entrypoint-initdb.d/ma.sql
+            - ./config/mysql.cnf:/etc/mysql/conf.d/ma.cnf
+            - ./data/manager/mysql/security-manager-db:/var/lib/mysql
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+            - TZ=Asia/Shanghai
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.security-manager-db
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+
+    auth-srv:
+        image: docker.hz.ulsee.com/hkeye/auth:v2.1-auth-srv2.1-2-g8c7633d
+        container_name: auth-srv
+        restart: unless-stopped
+        ports:
+            - "${AUTH_PORT}:7010"
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+        volumes:
+            - ./data/auth:/workspace/db
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.auth-srv
+        environment:
+            - TZ=Asia/Shanghai
+        command:
+            - "./auth-srv"
+
+    devices-srv:
+        image: docker.hz.ulsee.com/hkeye/devices-srv:v2.1-devices-srv2.1
+        container_name: devices-srv
+        restart: unless-stopped
+        ports:
+            - "${DEVICES_PORT}:10030"
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+        volumes:
+            - /proc/stat:/proc/stat:ro
+            - /proc/meminfo:/proc/meminfo:ro
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.devices-srv
+        environment:
+            - TZ=Asia/Shanghai
+        command:
+            - "./devices-srv"
+
+    door-server:
+      image: docker.hz.ulsee.com/hkeye/door-server:v2.1
+      network_mode: host
+      container_name: door-server
+      restart: always
+      logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.door-server
+      ports:
+          - "${DOOR_PORT}:8050"
+      volumes:
+          - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+      environment:
+          - TZ=Asia/Shanghai
+
+    minio:
+        image: docker.hz.ulsee.com/hkeye/minio:latest
+        restart: unless-stopped
+        network_mode: host
+        ports:
+            - "${MINIO_PORT}:9000"
+        environment:
+            MINIO_ACCESS_KEY: minio
+            MINIO_SECRET_KEY: minio123
+            TZ: Asia/Shanghai
+        volumes:
+            - ./data/export:/myexport
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.minio
+        command: server /myexport
+
+    storage:
+        image: docker.hz.ulsee.com/hkeye/storage:v2.0.0
+        network_mode: host
+        container_name: storage
+        restart: unless-stopped
+        ports:
+            - "${STORAGE_PORT}:7040"
+        ulimits:
+            nproc: 65536
+            nofile: 65536
+        logging:
+            driver: fluentd
+            options:
+                fluentd-address: localhost:24224
+                fluentd-async-connect: "true"
+                tag: hkeye.storage
+        volumes:
+            - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+        environment:
+            - TZ=Asia/Shanghai
+        command: "./storage -minio=127.0.0.1:9000"
+        depends_on:
+            - minio
