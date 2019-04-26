@@ -6,19 +6,19 @@ for i in ${zip[@]}
 do
        if [ -e $i.zip ]
        then
-               scp $i.zip ubuntu@118.89.139.53:/home/ubuntu/deploy/nginx/static/faceyunstatic/test/
+               scp $i.zip ubuntu@118.89.139.53:/home/ubuntu/deploy/nginx/faceyunstatic/test/
                echo "静态文件上传成功！"
        else
                echo "$i.zip 不存在！请检查当前目录是否有$i.zip文件！"
        fi
 done
 
-ssh ubuntu@118.89.139.53 'cd /home/ubuntu/deploy/nginx/static/faceyunstatic/  && ./deploy.sh'
+ssh ubuntu@118.89.139.53 'cd /home/ubuntu/deploy/nginx/faceyunstatic/  && ./deploy.sh'
 }
 
 displayVersions()
 {
-	ssh ubuntu@118.89.139.53 'cd /home/ubuntu/deploy/nginx/static/faceyunstatic/  && ./versions.sh'
+	ssh ubuntu@118.89.139.53 'cd /home/ubuntu/deploy/nginx/faceyunstatic/  && ./versions.sh'
 }
 
 read -p "查看目前发布所有版本请选择[ sS ],如果要发布新版本代码？请选择 [yY or nN] :" input
