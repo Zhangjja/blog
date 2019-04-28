@@ -7,6 +7,6 @@ echo "cp /etc/v2ray/config.json /root/"
 cp /etc/v2ray/config.json /root/
 echo "mv config.json config.json.bak"
 mv config.json config.json.bak
-echo "scp ubuntu@118.89.139.53:/home/ubuntu/v2ray/server_config.json /etc/v2ray/config.json"
-scp ubuntu@118.89.139.53:/home/ubuntu/v2ray/server_config.json /etc/v2ray/config.json
+#echo "scp ubuntu@118.89.139.53:/home/ubuntu/v2ray/server_config.json /etc/v2ray/config.json"
+#scp ubuntu@118.89.139.53:/home/ubuntu/v2ray/server_config.json /etc/v2ray/config.json
 
