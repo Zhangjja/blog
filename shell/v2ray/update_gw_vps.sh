@@ -5,15 +5,16 @@
 echo "一键更新局域网的网关和DNS服务"
 echo "选择需要更新的GW_DNS和VPS组名,将此GW_DNS配置成为使用此VPS的科学上外网关"
 
+
 #while true
 #do
 #	read -p "请输入需要更新的局域网网关或者DNS的ansible分组名：" GW_DNS
 	GW_DNS="$1"
-	echo "您输入的GW_DNS分组为$GW_DNS,正在验证GW_DNS分组是否存在,请稍后..."
-	count1=`ansible $GW_DNS -m ping|grep SUCCESS|wc -l`
+	echo "您输入的GW_DNS分组为"$GW_DNS",正在验证GW_DNS分组是否存在,请稍后..."
+	count1=`ansible "$GW_DNS" -m ping|grep SUCCESS|wc -l`
 	if [ $count1 -gt 0 ]
 	then
-		echo "验证成功GW_DNS分组存在！分组名为$GW_DNS"
+		echo "验证成功GW_DNS分组存在！分组名为"$GW_DNS""
 #		break
 	else
 		echo "GW_DNS分组不存在，请重新输入......"
@@ -59,25 +60,25 @@ echo $id
 
 echo "执行修改局域网GW或DNS的配置文件"
 echo "配置ip地址"
-ansible $GW_DNS -m shell -a "sed -i '13i\\$address' /etc/v2ray/config.json"
-ansible $GW_DNS -m shell -a "sed -i '14d' /etc/v2ray/config.json"
+ansible "$GW_DNS" -m shell -a "sed -i '13i\\$address' /etc/v2ray/config.json"
+ansible "$GW_DNS" -m shell -a "sed -i '14d' /etc/v2ray/config.json"
 
 echo "配置端口"
-ansible $GW_DNS -m shell -a "sed -i '14i\\$port' /etc/v2ray/config.json"
-ansible $GW_DNS -m shell -a "sed -i '15d' /etc/v2ray/config.json"
+ansible "$GW_DNS" -m shell -a "sed -i '14i\\$port' /etc/v2ray/config.json"
+ansible "$GW_DNS" -m shell -a "sed -i '15d' /etc/v2ray/config.json"
 
 echo "配置id"
-ansible $GW_DNS -m shell -a "sed -i '17i\\$id' /etc/v2ray/config.json"
-ansible $GW_DNS -m shell -a "sed -i '18d' /etc/v2ray/config.json"
+ansible "$GW_DNS" -m shell -a "sed -i '17i\\$id' /etc/v2ray/config.json"
+ansible "$GW_DNS" -m shell -a "sed -i '18d' /etc/v2ray/config.json"
 
 echo "配置防火墙"
 echo "1.拼接防火墙"
 fire_wall="iptables -t nat -A V2RAY -d  $server_address -j RETURN"
 echo $fire_wall
-ansible $GW_DNS -m shell -a "sed -i '14i\\$fire_wall' /opt/v2ray-firewall"
-ansible $GW_DNS -m shell -a "sed -i '15d' /opt/v2ray-firewall"
+ansible "$GW_DNS" -m shell -a "sed -i '14i\\$fire_wall' /opt/v2ray-firewall"
+ansible "$GW_DNS" -m shell -a "sed -i '15d' /opt/v2ray-firewall"
 
 echo "重启GW_DNS的v2ray服务"
-ansible $GW_DNS -m shell -a "reboot"
+ansible "$GW_DNS" -m shell -a "reboot"
 echo "服务重启成功！"
 echo "配置完毕！"
