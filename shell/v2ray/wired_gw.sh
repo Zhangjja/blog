@@ -203,7 +203,7 @@ echo "选择需要更新的GW_DNS和vps组名,将此GW_DNS配置成为使用此V
 #while true
 #do
 #	read -p "请输入需要更新的局域网网关或者DNS的ansible分组名：" GW_DNS
-GW_DNS="~(gw|dns)"
+GW_DNS="gw"
 echo "您输入的GW_DNS分组为"$GW_DNS",正在验证GW_DNS分组是否存在,请稍后..."
 count1=`ansible "$GW_DNS" -m ping|grep SUCCESS|wc -l`
 if [ $count1 -gt 0 ]
