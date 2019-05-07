@@ -1,5 +1,5 @@
 #!/bin/bash
-key="API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA"
+key="API-Key: QYLPNWSVQW6KQSJD4ES3R3QDZXMJD3IXIK2A"
 vps=""
 if [ -z "$1" ]
 then
@@ -8,7 +8,9 @@ else
 	vps="$1"
 fi
 
-curl -H "$key" https://api.vultr.com/v1/server/create --data 'DCID=5' --data 'VPSPLANID=201' --data 'OSID=193' --data 'SSHKEYID=5cc15103d9f4d' --data "label=$vps" > subid.txt
+SSHKEYID=`curl -H "$key" https://api.vultr.com/v1/sshkey/list |python -m json.tool |grep -E "\bSSHKEYID\b|\bname\b" | sed -n '/253/{x;p};h' | awk -F '"' '{print$4}'`
+
+curl -H "$key" https://api.vultr.com/v1/server/create --data 'DCID=5' --data 'VPSPLANID=201' --data 'OSID=193' --data 'SSHKEYID=5cc15103d9f4d' --data "label=$vps" --data "SSHKEYID=$SSHKEYID" > subid.txt
 cat subid.txt
 echo "installing server......"
 
@@ -28,7 +30,7 @@ do
 	else
 		echo $ip
 		break
-	fi	
+	fi
 done
 
 
@@ -69,10 +71,14 @@ if [ $? = 0 ]
 then
 	echo "ip地址存在！"
 	echo "------------"
-	echo "清理$ip已经存在的密钥"
+	echo "清理$ip 已经存在的密钥"
 	ssh-keygen -f "/root/.ssh/known_hosts" -R $ip
+	echo "$pwd"
+	LOCALSSHKEY=`cat /root/.ssh/id_rsa.pub`
+    sshpass -p $pwd ssh root@$ip "echo $LOCALSSHKEY >> /root/.ssh/authorized_keys"
+
 	echo "正在添加密钥！"
-	#静默安装本地ssh密钥
+
 	echo "v2ray_server安装ssh密钥"
 	while true
 	do
@@ -90,11 +96,11 @@ then
 	jugde=`cat /etc/ansible/hosts | grep -E "\b$vps\b"| wc -l`
 	if [ $jugde -gt 0 ]
 	then
-		echo "$vps已存在"
+		echo "$vps 已存在"
 		sed  -i "/$vps/{n;d}" /etc/ansible/hosts
 		sed -i "/$vps/a$ip ansible_ssh_user=root ansible_sudo_pass=$pwd" /etc/ansible/hosts
 	else
-		echo "$vps不存在"
+		echo "$vps 不存在"
 		sed -i "\$a\\[$vps\]" /etc/ansible/hosts
                 sed -i "/$vps/a$ip ansible_ssh_user=root ansible_sudo_pass=$pwd" /etc/ansible/hosts
 	fi
@@ -132,7 +138,7 @@ then
 	ansible $vps -m shell -a "sed -i '14d' /etc/v2ray/config.json"
 	echo "修改完毕-----------"
 	echo "v2ray服务端配置成功!开始重启v2ray服务器"
-	ansible $vps -m shell -a "reboot"
+	ansible $vps -m shell -a "service v2ray restart"
 	echo "重启成功！"
 	echo "-------------------"
 else

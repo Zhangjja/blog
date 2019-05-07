@@ -4,9 +4,12 @@
 #author zjj
 #describe 监控vlutr的使用率，达到250G时候自动重新搭建服务器，销毁老服务器，建立新服务器
 
-key="API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA"
+key="API-Key: QYLPNWSVQW6KQSJD4ES3R3QDZXMJD3IXIK2A"
+count=0
 while true
 do
+    let i+=1
+    echo "进行第 $i 次检测"
     gws=("gw" "ggww" "dns" "wifigw" "wifiggww" "wifidns")
     for gw in ${gws[@]}
     do
@@ -54,7 +57,7 @@ do
                 i=`expr 1024 \* 1024 \* 1024`
                 BANDUSAGE=`echo "sclae=2;$BANDWIDTH/$i" | bc`
                 echo `date +"%Y-%m-%d %H:%M:%S"` "获取的宽带使用率为$BANDUSAGE G"
-                if [ $BANDUSAGE -gt 250 ]
+                if [ $BANDUSAGE -eq 3 ]
                 then
                     echo `date +"%Y-%m-%d %H:%M:%S"` "触发重新搭建服务器条件,同时将keepalived服务停用"
                     echo `date +"%Y-%m-%d %H:%M:%S"` "正在停用keepalived服务"
@@ -69,7 +72,8 @@ do
 
                     #reinstall
                     echo `date +"%Y-%m-%d %H:%M:%S"` "重新安装v2ray服务器"
-                    curl -H "$key" https://api.vultr.com/v1/server/create --data 'DCID=5' --data 'VPSPLANID=201' --data 'OSID=193' --data 'SSHKEYID=5cc15103d9f4d' --data "label=$LABEL" > subid.txt
+                    SSHKEYID=`curl -H "$key" https://api.vultr.com/v1/sshkey/list |python -m json.tool |grep -E "\bSSHKEYID\b|\bname\b" | sed -n '/253/{x;p};h' | awk -F '"' '{print$4}'`
+                    curl -H "$key" https://api.vultr.com/v1/server/create --data 'DCID=5' --data 'VPSPLANID=201' --data 'OSID=193' --data "SSHKEYID=$SSHKEYID" --data "label=$LABEL" --data "SSHKEYID=$SSHKEYID" > subid.txt
                     cat subid.txt
                     echo `date +"%Y-%m-%d %H:%M:%S"` "installing server......"
                     INSTALL_SUBID=`cat subid.txt | awk -F '"' '{print$4}'`
@@ -84,7 +88,7 @@ do
                             echo `date +"%Y-%m-%d %H:%M:%S"` $ip
                             echo `date +"%Y-%m-%d %H:%M:%S"` "getting ip......"
                             sleep 5
-                            ip=`curl -H "$key" https://api.vultr.com/v1/server/list?SUBID=$INSTALL_SUBID | python -m json.tool | grep -E "\bmain_ip\b"  |awk -F '"' '{print$4}'`
+#                            ip=`curl -H "$key" https://api.vultr.com/v1/server/list?SUBID=$INSTALL_SUBID | python -m json.tool | grep -E "\bmain_ip\b"  |awk -F '"' '{print$4}'`
                         else
                             echo `date +"%Y-%m-%d %H:%M:%S"` "新建的v2ray服务器IP地址为$ip"
                             break
@@ -102,7 +106,7 @@ do
                             sleep 5
                             pwd=`curl -H "$key" https://api.vultr.com/v1/server/list?SUBID=$INSTALL_SUBID  | python -m json.tool | grep -E  "\bdefault_password\b" |awk -F '"' '{print$4}'`
                         else
-                            echo `date +"%Y-%m-%d %H:%M:%S"` "获取的v2ray服务器的秘密为$pwd"
+                            echo `date +"%Y-%m-%d %H:%M:%S"` "获取的v2ray服务器的密码为$pwd"
                             break
                         fi
                     done
@@ -115,28 +119,34 @@ do
                         ping -c 1 -W 2 $ip >/dev/null
                         if [ $? -eq 0 ]
                         then
+                            echo `date +"%Y-%m-%d %H:%M:%S"` "新建的v2ray服务器重启成功"
                             break
                         else
                             sleep 5
                             i=$(expr $i + 1)
                             echo `date +"%Y-%m-%d %H:%M:%S"` "$i"
                         fi
-                    echo `date +"%Y-%m-%d %H:%M:%S"` "新建的v2ray服务器重启成功"
+
                     done
 
                     ping -c 2 -W 2 $ip >> /dev/null
-                    if [ $? -eq 0 ]
+                    if [ $? = 0 ]
                     then
                         echo `date +"%Y-%m-%d %H:%M:%S"` "检查v2ray服务器ip地址存在！"
-                        echo `date +"%Y-%m-%d %H:%M:%S"` "------------"
+                        echo `date +"%Y-%m-%d %H:%M:%S"` "------------------------"
                         echo `date +"%Y-%m-%d %H:%M:%S"` "清理本地已经存在$ip 的密钥"
                         ssh-keygen -f "/root/.ssh/known_hosts" -R $ip
                         echo `date +"%Y-%m-%d %H:%M:%S"` "重新添加$ip 的密钥，正在添加密钥！"
+
+                        LOCALSSHKEY=`cat /root/.ssh/id_rsa.pub`
+                        apt install sshpass -y
+                        sshpass -p $pwd ssh root@$ip "echo $LOCALSSHKEY >> /root/.ssh/authorized_keys"
                         echo `date +"%Y-%m-%d %H:%M:%S"` "v2ray_server安装ssh密钥"
                         while true
                         do
                             ssh -o stricthostkeychecking=no root@$ip "ssh-keygen -t rsa -N '' -f /root/.ssh/id_rsa -q"
                             if [ $? -eq 0 ]
+
                                 break
                             then
                                 ssh -o stricthostkeychecking=no root@$ip "ssh-keygen -t rsa -N '' -f /root/.ssh/id_rsa -q"
@@ -147,6 +157,8 @@ do
                         echo `date +"%Y-%m-%d %H:%M:%S"` "正在配置ansible主控端"
 
                         jugde=`cat /etc/ansible/hosts | grep -E "\b$LABEL\b"| wc -l`
+                        echo "$LABEL"
+                        echo "$jugde"
                         if [ $jugde -gt 0 ]
                         then
                             echo `date +"%Y-%m-%d %H:%M:%S"` "$LABEL 已存在"
@@ -188,8 +200,8 @@ do
                         ansible $LABEL -m shell -a "sed -i '13i\\$id' /etc/v2ray/config.json"
                         ansible $LABEL -m shell -a "sed -i '14d' /etc/v2ray/config.json"
                         echo `date +"%Y-%m-%d %H:%M:%S"` "修改完毕，v2ray服务端配置成功!重启v2ray服务器"
-                        ansible $LABEL -m shell -a "reboot"
-                        echo `date +"%Y-%m-%d %H:%M:%S"` "v2ray服务器重启成功！"
+                        ansible $LABEL -m shell -a "service v2ray restart"
+                        echo `date +"%Y-%m-%d %H:%M:%S"` "v2ray服务重启成功！"
                         echo `date +"%Y-%m-%d %H:%M:%S"` "-------------------"
                     else
                         echo `date +"%Y-%m-%d %H:%M:%S"` "ip error, please contiue"
@@ -257,8 +269,8 @@ do
                     ansible "$gw" -m shell -a "sed -i '15d' /opt/v2ray-firewall"
 
                     echo `date +"%Y-%m-%d %H:%M:%S"` "重启gw的v2ray服务"
+                    ansible "$gw" -m shell -a "service v2ray restart"
                     ansible "$gw" -m shell -a "service keepalived restart"
-                    ansible "$gw" -m shell -a "reboot"
                     echo `date +"%Y-%m-%d %H:%M:%S"` "服务重启成功！"
                     echo `date +"%Y-%m-%d %H:%M:%S"` "配置完毕！"
 
@@ -267,9 +279,13 @@ do
                 fi
             fi
             echo `date +"%Y-%m-%d %H:%M:%S"` "睡眠1小时,正在睡眠等待中………………"
-            sleep 3600
+            sleep 10
+            echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+            echo "                                                                              "
+            echo "                                                                              "
             echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
             echo `date +"%Y-%m-%d %H:%M:%S"` "睡眠时间到，开始检测…………………………"
         fi
     done
+
 done

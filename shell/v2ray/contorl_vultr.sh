@@ -3,7 +3,7 @@
 
 
 
-curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/list | python -m json.tool | grep  -E "\blabel\b|\bSUBID\b|\bmain_ip\b" |awk '{print$1 $2}' > logfile
+curl -H 'API-Key: QYLPNWSVQW6KQSJD4ES3R3QDZXMJD3IXIK2A' https://api.vultr.com/v1/server/list | python -m json.tool | grep  -E "\blabel\b|\bSUBID\b|\bmain_ip\b" |awk '{print$1 $2}' > logfile
 
 cat logfile
 
@@ -19,7 +19,7 @@ do
 		rm logfile
 		if [ $count -gt 0 ]
 		then
-			curl -H 'API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA' https://api.vultr.com/v1/server/destroy --data "SUBID=$subid"
+			curl -H 'API-Key: QYLPNWSVQW6KQSJD4ES3R3QDZXMJD3IXIK2A' https://api.vultr.com/v1/server/destroy --data "SUBID=$subid"
 			echo "SUBID: $subid 删除成功"
 			break
 		else

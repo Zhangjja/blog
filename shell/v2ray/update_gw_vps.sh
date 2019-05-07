@@ -3,7 +3,7 @@
 #2019-4-15
 #author zhangjunjie
 echo "一键更新局域网的网关和DNS服务"
-key="API-Key: R336LW2OYPBDWOAYEPYUKD6EX4ZS37RHFQBA"
+key="API-Key: QYLPNWSVQW6KQSJD4ES3R3QDZXMJD3IXIK2A"
 
 GW_DNS="$1"
 echo "您输入的GW_DNS分组为"$GW_DNS",正在验证GW_DNS分组是否存在,请稍后..."
@@ -68,6 +68,7 @@ ansible "$GW_DNS" -m shell -a "sed -i '14i\\$fire_wall' /opt/v2ray-firewall"
 ansible "$GW_DNS" -m shell -a "sed -i '15d' /opt/v2ray-firewall"
 
 echo "重启GW_DNS的v2ray服务"
-ansible "$GW_DNS" -m shell -a "reboot"
+ansible "$GW_DNS" -m shell -a "service v2ray restart"
+ansible "$GW_DNS" -m shell -a "service keepalived restart"
 echo "服务重启成功！"
 echo "配置完毕！"
